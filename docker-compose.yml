@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+    app1:
+        build:
+            context: ./app1
+        ports:
+            - "3001:3000" # Map app1 internal port 3000 to host port 3001
+
+    app2:
+        build:
+            context: ./app2
+        ports:
+            - "3002:3000" # Map app2 internal port 3000 to host port 3002
