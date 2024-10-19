@@ -63,6 +63,12 @@ EOF
     echo "}"
   } | sudo tee "$nginx_conf_path" > /dev/null
 
+  # Check if the sites-enabled directory exists
+  if [ ! -d "/etc/nginx/sites-enabled/" ]; then
+    echo "Creating sites-enabled directory..."
+    sudo mkdir -p /etc/nginx/sites-enabled/
+  fi
+
   # Create a symlink to enable the site
   sudo ln -sf "$nginx_conf_path" /etc/nginx/sites-enabled/
 
@@ -122,6 +128,10 @@ main_menu() {
 
     case $option in
       1)
+        # Check if Nginx is installed before proceeding
+        if ! command -v nginx &> /dev/null; then
+          install_nginx
+        fi
         read -p "Enter your project's root domain name (e.g., example.com): " domain_name
         generate_nginx_conf "$domain_name"
         ;;
