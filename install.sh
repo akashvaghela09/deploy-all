@@ -27,8 +27,8 @@ install_docker() {
   fi
 }
 
-# Function to generate Nginx configuration
-generate_nginx_conf() {
+# Function to generate or append Nginx configuration
+update_nginx_conf() {
   local domain_name="$1"
   local nginx_conf_path="/etc/nginx/sites-available/$domain_name"
   local locations=""
@@ -41,6 +41,7 @@ generate_nginx_conf() {
 
     read -p "Enter the port for $repo_name: " port
     locations+=$(cat <<EOF
+
     location /$repo_name/ {
         proxy_pass http://localhost:$port/;
         proxy_set_header Host \$host;
@@ -53,15 +54,21 @@ EOF
 )
   done
 
-  # Create Nginx configuration file
-  {
-    echo "server {"
-    echo "    listen 80;"
-    echo "    server_name $domain_name;"
-    echo ""
-    echo "$locations"
-    echo "}"
-  } | sudo tee "$nginx_conf_path" > /dev/null
+  # Check if the configuration file exists
+  if [ ! -f "$nginx_conf_path" ]; then
+    # Create Nginx configuration file if it doesn't exist
+    {
+      echo "server {"
+      echo "    listen 80;"
+      echo "    server_name $domain_name;"
+      echo ""
+      echo "$locations"
+      echo "}"
+    } | sudo tee "$nginx_conf_path" > /dev/null
+  else
+    # Append new location blocks to the existing configuration
+    echo "$locations" | sudo tee -a "$nginx_conf_path" > /dev/null
+  fi
 
   # Check if the sites-enabled directory exists
   if [ ! -d "/etc/nginx/sites-enabled/" ]; then
@@ -73,7 +80,7 @@ EOF
   sudo ln -sf "$nginx_conf_path" /etc/nginx/sites-enabled/
 
   # Test Nginx configuration
-  if ! nginx -t; then
+  if ! sudo nginx -t; then
     echo "Nginx configuration test failed."
     exit 1
   fi
@@ -86,8 +93,8 @@ EOF
 # Function to add a new server
 add_new_server() {
   local domain_name
-  read -p "Enter the current domain name: " domain_name
-  generate_nginx_conf "$domain_name"
+  read -p "Enter the existing domain name: " domain_name
+  update_nginx_conf "$domain_name"
   echo "New server added successfully."
 }
 
@@ -103,7 +110,7 @@ update_domain() {
   sudo mv "/etc/nginx/sites-enabled/$old_domain" "/etc/nginx/sites-enabled/$new_domain"
 
   # Test Nginx configuration
-  if ! nginx -t; then
+  if ! sudo nginx -t; then
     echo "Nginx configuration test failed."
     exit 1
   fi
@@ -133,7 +140,7 @@ main_menu() {
           install_nginx
         fi
         read -p "Enter your project's root domain name (e.g., example.com): " domain_name
-        generate_nginx_conf "$domain_name"
+        update_nginx_conf "$domain_name"
         ;;
       2)
         install_nginx
