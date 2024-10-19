@@ -78,7 +78,7 @@ generate_nginx_conf() {
     echo "    server_name $domain_name;"
 
     # Read the docker-compose.yml file to get services and ports
-    services=$(yq '.services | keys' docker-compose.yml | tr -d '[]," ')
+    services=$(yq '.services | keys | .[]' docker-compose.yml)
 
     if [ -z "$services" ]; then
       echo "No services found in docker-compose.yml. Please check the file."
@@ -87,6 +87,11 @@ generate_nginx_conf() {
 
     for service in $services; do
       port=$(yq ".services.$service.ports[0]" docker-compose.yml | cut -d ':' -f 1 | tr -d ' ')
+
+      if [ -z "$port" ]; then
+        echo "No port found for service $service in docker-compose.yml."
+        exit 1
+      fi
 
       echo ""
       echo "    location /$service/ {"
@@ -109,7 +114,7 @@ generate_nginx_conf() {
   fi
 
   # Create a symlink to enable the site
-  sudo ln -s "$nginx_conf_path" /etc/nginx/sites-enabled/
+  sudo ln -sf "$nginx_conf_path" /etc/nginx/sites-enabled/
 
   # Test Nginx configuration
   if ! nginx -t; then
