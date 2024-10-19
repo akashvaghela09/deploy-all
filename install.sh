@@ -6,6 +6,19 @@ if [ "$EUID" -ne 0 ]; then
   exit
 fi
 
+# Function to install yq if not installed
+install_yq() {
+  if ! command -v yq &> /dev/null; then
+    echo "yq is not installed. Installing yq..."
+    sudo snap install yq
+    if [ $? -ne 0 ]; then
+      echo "Failed to install yq. Please install it manually."
+      exit 1
+    fi
+    echo "yq installed successfully."
+  fi
+}
+
 # Function to install Nginx
 install_nginx() {
   echo "Installing Nginx..."
@@ -67,6 +80,11 @@ generate_nginx_conf() {
     # Read the docker-compose.yml file to get services and ports
     services=$(yq '.services | keys' docker-compose.yml | tr -d '[]," ')
 
+    if [ -z "$services" ]; then
+      echo "No services found in docker-compose.yml. Please check the file."
+      exit 1
+    fi
+
     for service in $services; do
       port=$(yq ".services.$service.ports[0]" docker-compose.yml | cut -d ':' -f 1 | tr -d ' ')
 
@@ -106,6 +124,7 @@ generate_nginx_conf() {
 
 # Main function
 main() {
+  install_yq        # Check and install yq if not found
   install_nginx
   setup_firewall
   domain_name=$(ask_domain_name)
