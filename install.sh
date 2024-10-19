@@ -85,6 +85,9 @@ generate_nginx_conf() {
       exit 1
     fi
 
+    # Debug: Print the list of services
+    echo "Found services: $services"
+
     for service in $services; do
       port=$(yq ".services.$service.ports[0]" docker-compose.yml | cut -d ':' -f 1 | tr -d ' ')
 
@@ -92,6 +95,9 @@ generate_nginx_conf() {
         echo "No port found for service $service in docker-compose.yml."
         exit 1
       fi
+
+      # Debug: Print each service and its port
+      echo "Configuring $service to use port $port"
 
       echo ""
       echo "    location /$service/ {"
