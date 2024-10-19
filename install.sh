@@ -67,7 +67,10 @@ EOF
     } | sudo tee "$nginx_conf_path" > /dev/null
   else
     # Append new location blocks to the existing configuration
-    echo "$locations" | sudo tee -a "$nginx_conf_path" > /dev/null
+    {
+      echo "$locations" | sudo tee -a "$nginx_conf_path" > /dev/null
+      echo "" # Add a newline for better readability
+    }
   fi
 
   # Check if the sites-enabled directory exists
