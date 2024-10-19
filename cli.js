@@ -1,20 +1,26 @@
 #!/usr/bin/env node
 
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 const { program } = require("commander");
+const readline = require("readline");
 const os = require("os");
 
-program.version("1.0.0").description("CLI tool to install Docker and Nginx");
+program.version("1.0.0").description("CLI tool to install and setup Nginx");
 
-const execCommand = (command) => {
+const execCommand = (command, args = []) => {
     return new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Error: ${stderr}`);
-                reject(error);
+        const process = spawn(command, args, { stdio: "inherit" });
+
+        process.on("error", (error) => {
+            console.error(`Error executing ${command}: ${error.message}`);
+            reject(error);
+        });
+
+        process.on("close", (code) => {
+            if (code !== 0) {
+                reject(new Error(`${command} failed with exit code ${code}`));
             } else {
-                console.log(stdout);
-                resolve(stdout);
+                resolve();
             }
         });
     });
@@ -27,53 +33,60 @@ const checkRootPrivileges = () => {
     }
 };
 
-const installDocker = async () => {
-    console.log("Installing Docker...");
-
-    try {
-        await execCommand("apt-get update");
-        await execCommand(
-            "apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release"
-        );
-        await execCommand(
-            "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg"
-        );
-        await execCommand(
-            `echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null`
-        );
-        await execCommand("apt-get update");
-        await execCommand(
-            "apt-get install -y docker-ce docker-ce-cli containerd.io"
-        );
-
-        console.log("Docker installed successfully.");
-    } catch (error) {
-        console.error("Failed to install Docker:", error);
-    }
-};
-
 const installNginx = async () => {
     console.log("Installing Nginx...");
 
     try {
-        await execCommand("apt-get update");
-        await execCommand("apt-get install -y nginx");
-
+        await execCommand("apt-get", ["update"]);
+        await execCommand("apt-get", ["install", "-y", "nginx"]);
         console.log("Nginx installed successfully.");
     } catch (error) {
         console.error("Failed to install Nginx:", error);
     }
 };
 
-const installAll = async () => {
+const setupFirewall = async () => {
+    console.log("Setting up firewall for Nginx...");
+
+    try {
+        await execCommand("ufw", ["app", "list"]);
+        await execCommand("ufw", ["enable"]);
+        await execCommand("ufw", ["allow", "Nginx HTTP"]);
+        await execCommand("ufw", ["status"]);
+    } catch (error) {
+        console.error("Failed to configure the firewall:", error);
+    }
+};
+
+const askForDomainName = () => {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
+
+    rl.question(
+        "Enter your project's root domain name (e.g., example.com): ",
+        (domain) => {
+            console.log(`Your project's root domain is: ${domain}`);
+            rl.close();
+            process.exit(0); // Exit the CLI after the domain name is printed.
+        }
+    );
+};
+
+const installAndSetupNginx = async () => {
     checkRootPrivileges();
-    await installDocker();
+
     await installNginx();
+    await setupFirewall();
+
+    // Ask for domain name after Nginx and firewall setup
+    askForDomainName();
 };
 
 program
     .command("install")
-    .description("Install Docker and Nginx")
-    .action(installAll);
+    .description("Install Nginx and configure firewall")
+    .action(installAndSetupNginx);
 
 program.parse(process.argv);
