@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Variables
-DOMAIN="example.com"
+DOMAIN="deploy-all.app3.in"
 APP1_PORT="3001"
 APP2_PORT="3002"
 
